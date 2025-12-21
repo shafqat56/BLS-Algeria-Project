@@ -1,0 +1,1801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BLS Appointment Bot | Automated Visa Slot Finder</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        /* ===== GLOBAL STYLES ===== */
+        :root {
+            --primary: #1a365d;
+            --secondary: #2d6ef5;
+            --success: #38a169;
+            --danger: #e53e3e;
+            --warning: #ed8936;
+            --info: #4299e1;
+            --dark: #2d3748;
+            --light: #f8f9fa;
+            --gray: #718096;
+            --light-gray: #e2e8f0;
+            --card-bg: #ffffff;
+            --sidebar-bg: #1a202c;
+            --sidebar-text: #cbd5e0;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --radius: 12px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--dark);
+        }
+
+        /* ===== APP CONTAINER ===== */
+        #app {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            width: 280px;
+            background: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            padding: 30px 0;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            z-index: 100;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .logo {
+            padding: 0 25px 30px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .logo h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo p {
+            font-size: 13px;
+            opacity: 0.8;
+        }
+
+        .nav {
+            flex: 1;
+            padding: 0 20px;
+        }
+
+        .nav-section {
+            margin-bottom: 30px;
+        }
+
+        .nav-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #718096;
+            margin-bottom: 15px;
+            padding: 0 10px;
+            font-weight: 600;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 14px 20px;
+            color: var(--sidebar-text);
+            text-decoration: none;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-weight: 500;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .nav-item.active {
+            background: var(--secondary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(45, 110, 245, 0.3);
+        }
+
+        .nav-item i {
+            width: 20px;
+            text-align: center;
+            font-size: 18px;
+        }
+
+        .user-info {
+            padding: 20px 25px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .user-details h4 {
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+
+        .user-details p {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        /* ===== MAIN CONTENT ===== */
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            padding: 30px;
+            background: #f7fafc;
+            min-height: 100vh;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            background: white;
+            padding: 20px 30px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .page-title h2 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 5px;
+        }
+
+        .page-title p {
+            color: var(--gray);
+            font-size: 14px;
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 15px;
+        }
+
+        /* ===== BUTTONS ===== */
+        .btn {
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            border: none;
+            outline: none;
+        }
+
+        .btn-primary {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2c5282;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(45, 110, 245, 0.3);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #2f855a;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c53030;
+            transform: translateY(-2px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--secondary);
+            border: 2px solid var(--secondary);
+        }
+
+        .btn-outline:hover {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+
+        /* ===== CARDS ===== */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 25px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .card-icon.primary {
+            background: rgba(45, 110, 245, 0.1);
+            color: var(--secondary);
+        }
+
+        .card-icon.success {
+            background: rgba(56, 161, 105, 0.1);
+            color: var(--success);
+        }
+
+        .card-icon.warning {
+            background: rgba(237, 137, 54, 0.1);
+            color: var(--warning);
+        }
+
+        .card-icon.danger {
+            background: rgba(229, 62, 62, 0.1);
+            color: var(--danger);
+        }
+
+        /* ===== DASHBOARD ===== */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+        }
+
+        .monitoring-card {
+            grid-column: 1 / -1;
+        }
+
+        .monitoring-status {
+            background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%);
+            color: white;
+            padding: 25px;
+            border-radius: var(--radius);
+            margin-bottom: 25px;
+        }
+
+        .status-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .status-dot.active {
+            background: var(--success);
+            box-shadow: 0 0 0 5px rgba(56, 161, 105, 0.3);
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.inactive {
+            background: var(--gray);
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(56, 161, 105, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(56, 161, 105, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(56, 161, 105, 0); }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .slots-found {
+            background: rgba(229, 62, 62, 0.1);
+            border: 1px solid rgba(229, 62, 62, 0.3);
+            padding: 20px;
+            border-radius: var(--radius);
+            margin-top: 20px;
+        }
+
+        .slots-found h4 {
+            color: var(--danger);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slot-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid var(--danger);
+        }
+
+        /* ===== FORMS ===== */
+        .form-container {
+            background: white;
+            border-radius: var(--radius);
+            padding: 30px;
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 14px;
+        }
+
+        .form-label i {
+            margin-right: 8px;
+            color: var(--secondary);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 1px solid var(--light-gray);
+            border-radius: 10px;
+            font-size: 15px;
+            transition: var(--transition);
+            background: var(--light);
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--secondary);
+            box-shadow: 0 0 0 3px rgba(45, 110, 245, 0.1);
+            background: white;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 25px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        /* ===== TABLES ===== */
+        .table-container {
+            background: white;
+            border-radius: var(--radius);
+            padding: 25px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table th {
+            background: #f7fafc;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--dark);
+            border-bottom: 2px solid var(--light-gray);
+        }
+
+        .table td {
+            padding: 15px;
+            border-bottom: 1px solid var(--light-gray);
+        }
+
+        .table tr:hover {
+            background: #f7fafc;
+        }
+
+        /* ===== MODALS ===== */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal {
+            background: white;
+            border-radius: var(--radius);
+            padding: 40px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .modal-header {
+            margin-bottom: 30px;
+        }
+
+        .modal-header h3 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--gray);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .modal-close:hover {
+            color: var(--danger);
+        }
+
+        /* ===== ALERTS ===== */
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .alert-success {
+            background: rgba(56, 161, 105, 0.1);
+            color: var(--success);
+            border-left: 4px solid var(--success);
+        }
+
+        .alert-error {
+            background: rgba(229, 62, 62, 0.1);
+            color: var(--danger);
+            border-left: 4px solid var(--danger);
+        }
+
+        .alert-info {
+            background: rgba(66, 153, 225, 0.1);
+            color: var(--info);
+            border-left: 4px solid var(--info);
+        }
+
+        .alert-warning {
+            background: rgba(237, 137, 54, 0.1);
+            color: var(--warning);
+            border-left: 4px solid var(--warning);
+        }
+
+        /* Status Badge */
+        .status-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-badge.active {
+            background: rgba(56, 161, 105, 0.1);
+            color: var(--success);
+        }
+
+        .status-badge.stopped {
+            background: rgba(113, 128, 150, 0.1);
+            color: var(--gray);
+        }
+
+        .status-badge.paused {
+            background: rgba(237, 137, 54, 0.1);
+            color: var(--warning);
+        }
+
+        .status-badge.error {
+            background: rgba(229, 62, 62, 0.1);
+            color: var(--danger);
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 1200px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 80px;
+                padding: 20px 0;
+            }
+            
+            .sidebar .logo h1 span,
+            .sidebar .nav-title,
+            .sidebar .nav-item span,
+            .sidebar .user-details {
+                display: none;
+            }
+            
+            .main-content {
+                margin-left: 80px;
+            }
+            
+            .nav-item {
+                justify-content: center;
+                padding: 15px;
+            }
+            
+            .user-info {
+                justify-content: center;
+                padding: 20px 10px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .cards-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .top-bar {
+                flex-direction: column;
+                gap: 20px;
+                text-align: center;
+            }
+            
+            .quick-actions {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .main-content {
+                padding: 20px;
+            }
+            
+            .modal {
+                padding: 25px;
+                width: 95%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo">
+                <h1>
+                    <i class="fas fa-robot"></i>
+                    <span>BLS Bot Pro</span>
+                </h1>
+                <p>Automated Visa Slot Finder</p>
+            </div>
+
+            <div class="nav">
+                <div class="nav-section">
+                    <div class="nav-title">Dashboard</div>
+                    <div class="nav-item active" data-page="dashboard">
+                        <i class="fas fa-home"></i>
+                        <span>Overview</span>
+                    </div>
+                    <div class="nav-item" data-page="monitoring">
+                        <i class="fas fa-search"></i>
+                        <span>Live Monitoring</span>
+                    </div>
+                    <div class="nav-item" data-page="slots">
+                        <i class="fas fa-calendar-check"></i>
+                        <span>Found Slots</span>
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-title">Management</div>
+                    <div class="nav-item" data-page="profiles">
+                        <i class="fas fa-user-circle"></i>
+                        <span>Visa Profiles</span>
+                    </div>
+                    <div class="nav-item" data-page="centers">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>BLS Centers</span>
+                    </div>
+                    <div class="nav-item" data-page="settings">
+                        <i class="fas fa-cog"></i>
+                        <span>Settings</span>
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-title">Tools</div>
+                    <div class="nav-item" data-page="autofill">
+                        <i class="fas fa-magic"></i>
+                        <span>Auto-fill</span>
+                    </div>
+                    <div class="nav-item" data-page="notifications">
+                        <i class="fas fa-bell"></i>
+                        <span>Notifications</span>
+                    </div>
+                    <div class="nav-item" data-page="logs">
+                        <i class="fas fa-clipboard-list"></i>
+                        <span>Activity Logs</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="user-info">
+                <div class="user-avatar" id="userAvatar">U</div>
+                <div class="user-details">
+                    <h4 id="userName">User Account</h4>
+                    <p id="userStatus">Online</p>
+                </div>
+                <button onclick="handleLogout()" class="btn btn-sm btn-outline" style="margin-left: auto; padding: 5px 10px; font-size: 12px; border: 1px solid rgba(255,255,255,0.3); color: white;">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <div class="page-title">
+                    <h2 id="pageTitle">Dashboard Overview</h2>
+                    <p id="pageDescription">Monitor and manage your BLS appointment automation</p>
+                </div>
+                <div class="quick-actions">
+                    <button class="btn btn-primary" id="startMonitorBtn">
+                        <i class="fas fa-play"></i>
+                        Start Monitoring
+                    </button>
+                    <button class="btn btn-outline" id="addProfileBtn">
+                        <i class="fas fa-plus"></i>
+                        Add Profile
+                    </button>
+                    <button class="btn btn-outline" id="settingsBtn">
+                        <i class="fas fa-cog"></i>
+                        Settings
+                    </button>
+                </div>
+            </div>
+
+            <!-- Content Pages -->
+            <div id="contentPages">
+                <!-- Dashboard Page -->
+                <div class="page active" id="dashboardPage">
+                    <div class="cards-grid">
+                        <div class="card monitoring-card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    <div class="card-icon primary">
+                                        <i class="fas fa-search"></i>
+                                    </div>
+                                    <span>Live Monitoring Status</span>
+                                </div>
+                                <div class="status-indicator">
+                                    <div class="status-dot inactive" id="monitorStatusDot"></div>
+                                    <span id="monitorStatusText">Inactive</span>
+                                </div>
+                            </div>
+                            <div class="monitoring-status">
+                                <div class="status-header">
+                                    <h3 style="color: white;">BLS Appointment Tracker</h3>
+                                    <button class="btn btn-success btn-sm" id="toggleMonitorBtn">
+                                        <i class="fas fa-play"></i>
+                                        Start Monitor
+                                    </button>
+                                </div>
+                                <div class="stats-grid">
+                                    <div class="stat-item">
+                                        <div class="stat-value" id="totalChecks">0</div>
+                                        <div class="stat-label">Total Checks</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-value" id="foundSlotsCount">0</div>
+                                        <div class="stat-label">Slots Found</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-value" id="activeCenters">0</div>
+                                        <div class="stat-label">Active Centers</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-value" id="lastCheck">-</div>
+                                        <div class="stat-label">Last Check</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    <div class="card-icon success">
+                                        <i class="fas fa-user-check"></i>
+                                    </div>
+                                    <span>Profiles</span>
+                                </div>
+                            </div>
+                            <div id="profilesStats">
+                                <p style="color: var(--gray); margin-bottom: 15px;">No profiles configured</p>
+                                <button class="btn btn-primary btn-sm" onclick="showPage('profiles')">
+                                    <i class="fas fa-plus"></i>
+                                    Add Profile
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-title">
+                                    <div class="card-icon warning">
+                                        <i class="fas fa-bell"></i>
+                                    </div>
+                                    <span>Notifications</span>
+                                </div>
+                            </div>
+                            <div>
+                                <p style="color: var(--gray); margin-bottom: 15px;">Configure notifications to get alerts</p>
+                                <button class="btn btn-outline btn-sm" onclick="showPage('notifications')">
+                                    <i class="fas fa-cog"></i>
+                                    Setup
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-history"></i>
+                                <span>Recent Activity</span>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Action</th>
+                                        <th>Center</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="activityLog">
+                                    <!-- Activity logs will be inserted here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Monitoring Page -->
+                <div class="page" id="monitoringPage">
+                    <div class="form-container">
+                        <h3 style="margin-bottom: 25px;">Monitoring Configuration</h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    BLS Center
+                                </label>
+                                <select class="form-input" id="monitorCenter">
+                                    <option value="algiers_1">Algiers 1</option>
+                                    <option value="algiers_2">Algiers 2</option>
+                                    <option value="algiers_3">Algiers 3</option>
+                                    <option value="algiers_4">Algiers 4</option>
+                                    <option value="oran_1">Oran 1</option>
+                                    <option value="oran_2">Oran 2</option>
+                                    <option value="oran_3">Oran 3</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <i class="fas fa-clock"></i>
+                                    Check Interval (minutes)
+                                </label>
+                                <input type="number" class="form-input" id="checkInterval" 
+                                       min="3" max="30" value="5">
+                                <small style="color: var(--gray); display: block; margin-top: 5px;">
+                                    Minimum 3 minutes to avoid detection
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <i class="fas fa-user"></i>
+                                    Profile to Use
+                                </label>
+                                <select class="form-input" id="monitorProfile">
+                                    <option value="">Select a profile</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <i class="fas fa-bolt"></i>
+                                    Auto-fill Mode
+                                </label>
+                                <select class="form-input" id="autofillMode">
+                                    <option value="manual">Manual (Notify Only)</option>
+                                    <option value="semi">Semi-Auto (Fill Forms)</option>
+                                    <option value="full">Full Auto (Attempt Booking)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button class="btn btn-success" id="saveMonitorConfig">
+                                <i class="fas fa-save"></i>
+                                Save & Start Monitoring
+                            </button>
+                            <button class="btn btn-outline" onclick="showPage('dashboard')">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Active Monitors -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-tasks"></i>
+                                <span>Active Monitors</span>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Center</th>
+                                        <th>Status</th>
+                                        <th>Last Check</th>
+                                        <th>Found</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="activeMonitorsTable">
+                                    <!-- Active monitors will be inserted here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Profiles Page -->
+                <div class="page" id="profilesPage">
+                    <div class="form-container">
+                        <h3 style="margin-bottom: 25px;">Visa Profile Management</h3>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <i class="fas fa-user"></i>
+                                    Full Name
+                                </label>
+                                <input type="text" class="form-input" id="profileName" 
+                                       placeholder="John Alexander Doe">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <i class="fas fa-passport"></i>
+                                    Passport Number
+                                </label>
+                                <input type="text" class="form-input" id="profilePassport" 
+                                       placeholder="A12345678">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <i class="fas fa-birthday-cake"></i>
+                                    Date of Birth
+                                </label>
+                                <input type="date" class="form-input" id="profileDOB">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <i class="fas fa-flag"></i>
+                                    Nationality
+                                </label>
+                                <input type="text" class="form-input" id="profileNationality" 
+                                       placeholder="American">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <i class="fas fa-phone"></i>
+                                    Phone Number
+                                </label>
+                                <input type="tel" class="form-input" id="profilePhone" 
+                                       placeholder="+34 677 123 456">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <i class="fas fa-envelope"></i>
+                                    Email Address
+                                </label>
+                                <input type="email" class="form-input" id="profileEmail" 
+                                       placeholder="john.doe@example.com">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <i class="fas fa-file-alt"></i>
+                                    Visa Type
+                                </label>
+                                <select class="form-input" id="profileVisaType">
+                                    <option value="tourist">Tourist Visa</option>
+                                    <option value="student">Student Visa</option>
+                                    <option value="work">Work Visa</option>
+                                    <option value="business">Business Visa</option>
+                                    <option value="transit">Transit Visa</option>
+                                    <option value="family">Family Visa</option>
+                                    <option value="medical">Medical Visa</option>
+                                    <option value="cultural">Cultural Visa</option>
+                                    <option value="sports">Sports Visa</option>
+                                    <option value="official">Official Visa</option>
+                                    <option value="diplomatic">Diplomatic Visa</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    Preferred Center
+                                </label>
+                                <select class="form-input" id="profileCenter">
+                                    <option value="algiers_1">Algiers 1</option>
+                                    <option value="algiers_2">Algiers 2</option>
+                                    <option value="algiers_3">Algiers 3</option>
+                                    <option value="algiers_4">Algiers 4</option>
+                                    <option value="oran_1">Oran 1</option>
+                                    <option value="oran_2">Oran 2</option>
+                                    <option value="oran_3">Oran 3</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button class="btn btn-primary" id="saveProfileBtn">
+                                <i class="fas fa-save"></i>
+                                Save Profile
+                            </button>
+                            <button class="btn btn-outline" id="clearProfileBtn">
+                                Clear Form
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Saved Profiles -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-users"></i>
+                                <span>Saved Profiles</span>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Passport</th>
+                                        <th>Visa Type</th>
+                                        <th>Center</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="profilesTable">
+                                    <!-- Profiles will be inserted here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add more pages here... -->
+            </div>
+
+            <!-- Alerts Container -->
+            <div id="alertsContainer"></div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal">
+            <button class="modal-close" onclick="hideModal('loginModal')">&times;</button>
+            <div class="modal-header">
+                <h3>Secure Login</h3>
+                <p>Enter your credentials to access the automation system</p>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input type="email" class="form-input" id="loginEmail" 
+                       placeholder="your@email.com">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Master Password</label>
+                <input type="password" class="form-input" id="loginPassword" 
+                       placeholder="Enter your master password">
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-primary" onclick="handleLogin()">
+                    <i class="fas fa-lock"></i>
+                    Login
+                </button>
+                <button class="btn btn-outline" onclick="hideModal('loginModal'); showModal('registerModal');">
+                    Register
+                </button>
+                <button class="btn btn-outline" onclick="hideModal('loginModal')">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Modal -->
+    <div class="modal-overlay" id="registerModal">
+        <div class="modal">
+            <button class="modal-close" onclick="hideModal('registerModal')">&times;</button>
+            <div class="modal-header">
+                <h3>Create Account</h3>
+                <p>Register a new account to get started</p>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input type="email" class="form-input" id="registerEmail" 
+                       placeholder="your@email.com">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password (min 8 characters)</label>
+                <input type="password" class="form-input" id="registerPassword" 
+                       placeholder="Enter a secure password">
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-primary" onclick="handleRegister()">
+                    <i class="fas fa-user-plus"></i>
+                    Register
+                </button>
+                <button class="btn btn-outline" onclick="hideModal('registerModal'); showModal('loginModal');">
+                    Already have account? Login
+                </button>
+                <button class="btn btn-outline" onclick="hideModal('registerModal')">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="modal-overlay" id="loadingOverlay">
+        <div class="modal" style="background: transparent; box-shadow: none;">
+            <div style="text-align: center; color: white;">
+                <i class="fas fa-spinner fa-spin fa-3x" style="margin-bottom: 20px;"></i>
+                <h3 id="loadingText">Loading...</h3>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== GLOBAL VARIABLES =====
+        let socket = null;
+        let currentUser = null;
+        let profiles = [];
+        let monitors = [];
+        const API_BASE = 'http://localhost:3000/api';
+
+        // ===== UTILITY FUNCTIONS =====
+        function getAuthToken() {
+            return localStorage.getItem('authToken');
+        }
+
+        function setAuthToken(token) {
+            localStorage.setItem('authToken', token);
+        }
+
+        function removeAuthToken() {
+            localStorage.removeItem('authToken');
+        }
+
+        function showModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) modal.classList.add('active');
+        }
+
+        function hideModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) modal.classList.remove('active');
+        }
+
+        function showLoading(text = 'Loading...') {
+            const overlay = document.getElementById('loadingOverlay');
+            const textEl = document.getElementById('loadingText');
+            if (overlay) overlay.classList.add('active');
+            if (textEl) textEl.textContent = text;
+        }
+
+        function hideLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) overlay.classList.remove('active');
+        }
+
+        function showAlert(message, type = 'info') {
+            const container = document.getElementById('alertsContainer');
+            if (!container) return;
+
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+                <span>${message}</span>
+                <button onclick="this.parentElement.remove()" style="margin-left: auto; background: none; border: none; cursor: pointer;">&times;</button>
+            `;
+            container.appendChild(alert);
+
+            setTimeout(() => alert.remove(), 5000);
+        }
+
+        function showPage(pageId) {
+            // Hide all pages
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+
+            // Show selected page
+            const page = document.getElementById(pageId + 'Page');
+            if (page) page.classList.add('active');
+
+            // Update nav items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.dataset.page === pageId) {
+                    item.classList.add('active');
+                }
+            });
+
+            // Update page title
+            const titles = {
+                'dashboard': { title: 'Dashboard Overview', desc: 'Monitor and manage your BLS appointment automation' },
+                'monitoring': { title: 'Live Monitoring', desc: 'Configure and manage active monitors' },
+                'profiles': { title: 'Visa Profiles', desc: 'Manage your visa application profiles' },
+                'settings': { title: 'Settings', desc: 'Configure your preferences and notifications' }
+            };
+
+            if (titles[pageId]) {
+                document.getElementById('pageTitle').textContent = titles[pageId].title;
+                document.getElementById('pageDescription').textContent = titles[pageId].desc;
+            }
+
+            // Load data for specific pages
+            if (pageId === 'profiles') loadProfiles();
+            if (pageId === 'monitoring') loadMonitors();
+        }
+
+        // ===== API REQUEST FUNCTION =====
+        async function apiRequest(endpoint, options = {}) {
+            const token = getAuthToken();
+            const headers = {
+                'Content-Type': 'application/json',
+                ...options.headers
+            };
+
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    ...options,
+                    headers
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Request failed');
+                }
+
+                return data;
+            } catch (error) {
+                console.error('API Error:', error);
+                throw error;
+            }
+        }
+
+        // ===== AUTHENTICATION FUNCTIONS =====
+        async function handleLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            if (!email || !password) {
+                showAlert('Please enter both email and password', 'error');
+                return;
+            }
+
+            try {
+                showLoading('Logging in...');
+                const result = await apiRequest('/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (result.success && result.token) {
+                    setAuthToken(result.token);
+                    currentUser = result.user;
+                    hideModal('loginModal');
+                    showAlert('Login successful!', 'success');
+                    updateUserDisplay(result.user);
+                    loadUserData();
+                    connectSocket();
+                } else {
+                    showAlert(result.error || 'Login failed', 'error');
+                }
+            } catch (error) {
+                showAlert('Login error: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function handleRegister() {
+            const email = document.getElementById('registerEmail')?.value;
+            const password = document.getElementById('registerPassword')?.value;
+
+            if (!email || !password) {
+                showAlert('Please enter both email and password', 'error');
+                return;
+            }
+
+            if (password.length < 8) {
+                showAlert('Password must be at least 8 characters', 'error');
+                return;
+            }
+
+            try {
+                showLoading('Registering...');
+                const result = await apiRequest('/auth/register', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (result.success) {
+                    showAlert('Registration successful! Please login.', 'success');
+                    hideModal('registerModal');
+                    showModal('loginModal');
+                } else {
+                    showAlert(result.error || 'Registration failed', 'error');
+                }
+            } catch (error) {
+                showAlert('Registration error: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function handleLogout() {
+            removeAuthToken();
+            currentUser = null;
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+            showModal('loginModal');
+            showAlert('Logged out successfully', 'info');
+        }
+
+        function updateUserDisplay(user) {
+            const userName = document.getElementById('userName');
+            const userAvatar = document.getElementById('userAvatar');
+            
+            if (userName) userName.textContent = user.email || 'User';
+            if (userAvatar) {
+                const initial = (user.email || 'U')[0].toUpperCase();
+                userAvatar.textContent = initial;
+            }
+        }
+
+        // ===== SOCKET.IO CONNECTION =====
+        function connectSocket() {
+            const token = getAuthToken();
+            if (!token) return;
+
+            if (socket) socket.disconnect();
+
+            socket = io('http://localhost:3000', {
+                auth: { token }
+            });
+
+            socket.on('connect', () => {
+                console.log('Socket.io connected');
+                socket.emit('join-user-room');
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Socket.io disconnected');
+            });
+
+            socket.on('statusUpdate', (data) => {
+                console.log('Status update:', data);
+                showAlert(`Monitor ${data.id}: ${data.message}`, 'info');
+            });
+
+            socket.on('slotAvailable', (data) => {
+                console.log('Slot available!', data);
+                showAlert('🎉 Appointment slot found!', 'success');
+                loadMonitors(); // Refresh monitors
+            });
+        }
+
+        // ===== PROFILE FUNCTIONS =====
+        async function loadProfiles() {
+            try {
+                const result = await apiRequest('/profiles');
+                if (result.success) {
+                    profiles = result.profiles || [];
+                    updateProfilesTable();
+                    updateProfileSelect();
+                }
+            } catch (error) {
+                console.error('Error loading profiles:', error);
+            }
+        }
+
+        async function saveProfile() {
+            const profileData = {
+                fullName: document.getElementById('profileName').value,
+                passportNumber: document.getElementById('profilePassport').value,
+                dateOfBirth: document.getElementById('profileDOB').value,
+                nationality: document.getElementById('profileNationality').value,
+                phone: document.getElementById('profilePhone').value,
+                email: document.getElementById('profileEmail').value,
+                visaCategory: document.getElementById('profileVisaType').value,
+                blsCenter: document.getElementById('profileCenter').value,
+                appointmentType: document.getElementById('profileVisaType').options[document.getElementById('profileVisaType').selectedIndex].text,
+                profileName: document.getElementById('profileName').value || 'Default Profile'
+            };
+
+            try {
+                showLoading('Saving profile...');
+                const result = await apiRequest('/profiles', {
+                    method: 'POST',
+                    body: JSON.stringify(profileData)
+                });
+
+                if (result.success) {
+                    showAlert('Profile saved successfully!', 'success');
+                    clearProfileForm();
+                    loadProfiles();
+                }
+            } catch (error) {
+                showAlert('Error saving profile: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function clearProfileForm() {
+            document.getElementById('profileName').value = '';
+            document.getElementById('profilePassport').value = '';
+            document.getElementById('profileDOB').value = '';
+            document.getElementById('profileNationality').value = '';
+            document.getElementById('profilePhone').value = '';
+            document.getElementById('profileEmail').value = '';
+        }
+
+        function updateProfilesTable() {
+            const tbody = document.getElementById('profilesTable');
+            if (!tbody) return;
+
+            tbody.innerHTML = profiles.map(profile => `
+                <tr>
+                    <td>${profile.profile_name || 'N/A'}</td>
+                    <td>${profile.full_name || 'N/A'}</td>
+                    <td>${profile.visa_category}</td>
+                    <td>${profile.bls_center.replace('_', ' ').toUpperCase()}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" onclick="deleteProfile('${profile.id}')">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateProfileSelect() {
+            const select = document.getElementById('monitorProfile');
+            if (!select) return;
+
+            select.innerHTML = '<option value="">Select a profile</option>' +
+                profiles.map(p => `<option value="${p.id}">${p.profile_name || p.full_name}</option>`).join('');
+        }
+
+        async function deleteProfile(id) {
+            if (!confirm('Are you sure you want to delete this profile?')) return;
+
+            try {
+                showLoading('Deleting profile...');
+                const result = await apiRequest(`/profiles/${id}`, { method: 'DELETE' });
+                if (result.success) {
+                    showAlert('Profile deleted successfully', 'success');
+                    loadProfiles();
+                }
+            } catch (error) {
+                showAlert('Error deleting profile: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // ===== MONITOR FUNCTIONS =====
+        async function loadMonitors() {
+            try {
+                const result = await apiRequest('/monitor');
+                if (result.success) {
+                    monitors = result.monitors || [];
+                    updateMonitorsTable();
+                    updateMonitoringStats();
+                }
+            } catch (error) {
+                console.error('Error loading monitors:', error);
+            }
+        }
+
+        async function saveMonitorConfig() {
+            const profileId = document.getElementById('monitorProfile').value;
+            const blsCenter = document.getElementById('monitorCenter').value;
+            const checkInterval = parseInt(document.getElementById('checkInterval').value) || 5;
+            const autofillMode = document.getElementById('autofillMode').value;
+
+            if (!profileId) {
+                showAlert('Please select a profile', 'error');
+                return;
+            }
+
+            try {
+                showLoading('Starting monitor...');
+                const result = await apiRequest('/monitor/start', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        profileId,
+                        blsCenter,
+                        checkInterval,
+                        autofillMode
+                    })
+                });
+
+                if (result.success) {
+                    showAlert('Monitoring started successfully!', 'success');
+                    loadMonitors();
+                    showPage('monitoring');
+                }
+            } catch (error) {
+                showAlert('Error starting monitor: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function updateMonitorsTable() {
+            const tbody = document.getElementById('activeMonitorsTable');
+            if (!tbody) return;
+
+            tbody.innerHTML = monitors.map(monitor => `
+                <tr>
+                    <td>${monitor.bls_center.replace('_', ' ').toUpperCase()}</td>
+                    <td><span class="status-badge ${monitor.status}">${monitor.status}</span></td>
+                    <td>${monitor.last_check ? new Date(monitor.last_check).toLocaleString() : 'Never'}</td>
+                    <td>${monitor.slots_found || 0}</td>
+                    <td>
+                        ${monitor.status === 'active' 
+                            ? `<button class="btn btn-sm btn-danger" onclick="stopMonitor('${monitor.id}')">Stop</button>`
+                            : `<button class="btn btn-sm btn-success" onclick="startMonitor('${monitor.id}')">Start</button>`
+                        }
+                    </td>
+                </tr>
+            `).join('') || '<tr><td colspan="5">No monitors configured</td></tr>';
+        }
+
+        function updateMonitoringStats() {
+            const totalChecks = monitors.reduce((sum, m) => sum + (m.total_checks || 0), 0);
+            const foundSlots = monitors.reduce((sum, m) => sum + (m.slots_found || 0), 0);
+            const activeCount = monitors.filter(m => m.status === 'active').length;
+
+            const totalChecksEl = document.getElementById('totalChecks');
+            const foundSlotsEl = document.getElementById('foundSlotsCount');
+            const activeCentersEl = document.getElementById('activeCenters');
+            const lastCheckEl = document.getElementById('lastCheck');
+
+            if (totalChecksEl) totalChecksEl.textContent = totalChecks;
+            if (foundSlotsEl) foundSlotsEl.textContent = foundSlots;
+            if (activeCentersEl) activeCentersEl.textContent = activeCount;
+            if (lastCheckEl) {
+                const lastCheck = monitors.length > 0 ? monitors[0].last_check : null;
+                lastCheckEl.textContent = lastCheck ? new Date(lastCheck).toLocaleTimeString() : '-';
+            }
+
+            // Update status indicator
+            const statusDot = document.getElementById('monitorStatusDot');
+            const statusText = document.getElementById('monitorStatusText');
+            if (statusDot) {
+                statusDot.className = activeCount > 0 ? 'status-dot active' : 'status-dot inactive';
+            }
+            if (statusText) {
+                statusText.textContent = activeCount > 0 ? 'Active' : 'Inactive';
+            }
+        }
+
+        async function startMonitor(monitorId) {
+            try {
+                showLoading('Starting monitor...');
+                const result = await apiRequest('/monitor/resume', {
+                    method: 'POST',
+                    body: JSON.stringify({ id: monitorId })
+                });
+                if (result.success) {
+                    showAlert('Monitor started', 'success');
+                    loadMonitors();
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function stopMonitor(monitorId) {
+            try {
+                showLoading('Stopping monitor...');
+                const result = await apiRequest('/monitor/stop', {
+                    method: 'POST',
+                    body: JSON.stringify({ id: monitorId })
+                });
+                if (result.success) {
+                    showAlert('Monitor stopped', 'success');
+                    loadMonitors();
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // ===== USER DATA LOADING =====
+        async function loadUserData() {
+            try {
+                const userResult = await apiRequest('/auth/me');
+                if (userResult.success) {
+                    currentUser = userResult.user;
+                    updateUserDisplay(userResult.user);
+                }
+                await loadProfiles();
+                await loadMonitors();
+            } catch (error) {
+                console.error('Error loading user data:', error);
+            }
+        }
+
+        // ===== EVENT LISTENERS =====
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check if user is logged in
+            const token = getAuthToken();
+            if (token) {
+                loadUserData();
+                connectSocket();
+            } else {
+                showModal('loginModal');
+            }
+
+            // Set up button handlers
+            const saveProfileBtn = document.getElementById('saveProfileBtn');
+            if (saveProfileBtn) {
+                saveProfileBtn.addEventListener('click', saveProfile);
+            }
+
+            const saveMonitorBtn = document.getElementById('saveMonitorConfig');
+            if (saveMonitorBtn) {
+                saveMonitorBtn.addEventListener('click', saveMonitorConfig);
+            }
+
+            const clearProfileBtn = document.getElementById('clearProfileBtn');
+            if (clearProfileBtn) {
+                clearProfileBtn.addEventListener('click', clearProfileForm);
+            }
+
+            // Navigation handlers
+            document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+                item.addEventListener('click', () => {
+                    showPage(item.dataset.page);
+                });
+            });
+
+            // Quick action buttons
+            const addProfileBtn = document.getElementById('addProfileBtn');
+            if (addProfileBtn) {
+                addProfileBtn.addEventListener('click', () => showPage('profiles'));
+            }
+
+            const settingsBtn = document.getElementById('settingsBtn');
+            if (settingsBtn) {
+                settingsBtn.addEventListener('click', () => showPage('settings'));
+            }
+
+            const startMonitorBtn = document.getElementById('startMonitorBtn');
+            if (startMonitorBtn) {
+                startMonitorBtn.addEventListener('click', () => showPage('monitoring'));
+            }
+        });
+
+        // Make functions globally available
+        window.handleLogin = handleLogin;
+        window.handleRegister = handleRegister;
+        window.handleLogout = handleLogout;
+        window.showPage = showPage;
+        window.hideModal = hideModal;
+        window.startMonitor = startMonitor;
+        window.stopMonitor = stopMonitor;
+        window.deleteProfile = deleteProfile;
+    </script>
+</body>
+</html>
