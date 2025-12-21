@@ -46,8 +46,10 @@ module.exports = (sequelize) => {
         }
       },
       set(value) {
-        if (value) {
+        if (value && value.trim() !== '') {
           this.setDataValue('email_address', encrypt(value));
+        } else {
+          this.setDataValue('email_address', null);
         }
       }
     },
@@ -64,8 +66,10 @@ module.exports = (sequelize) => {
         }
       },
       set(value) {
-        if (value) {
+        if (value && value.trim() !== '') {
           this.setDataValue('whatsapp_number', encrypt(value));
+        } else {
+          this.setDataValue('whatsapp_number', null);
         }
       }
     },
@@ -82,8 +86,10 @@ module.exports = (sequelize) => {
         }
       },
       set(value) {
-        if (value) {
+        if (value && value.trim() !== '') {
           this.setDataValue('telegram_chat_id', encrypt(value));
+        } else {
+          this.setDataValue('telegram_chat_id', null);
         }
       }
     },
@@ -100,8 +106,10 @@ module.exports = (sequelize) => {
         }
       },
       set(value) {
-        if (value) {
+        if (value && value.trim() !== '') {
           this.setDataValue('phone_number', encrypt(value));
+        } else {
+          this.setDataValue('phone_number', null);
         }
       }
     },
@@ -118,8 +126,10 @@ module.exports = (sequelize) => {
         }
       },
       set(value) {
-        if (value) {
+        if (value && value.trim() !== '') {
           this.setDataValue('captcha_api_key', encrypt(value));
+        } else {
+          this.setDataValue('captcha_api_key', null);
         }
       }
     },

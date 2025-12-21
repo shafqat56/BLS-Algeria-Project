@@ -1,0 +1,29 @@
+/* App Container - matches original HTML structure */
+#app {
+    display: flex;
+    min-height: 100vh;
+}
+
+.main-content {
+    flex: 1;
+    margin-left: 280px;
+    padding: 30px;
+    background: #f7fafc;
+    min-height: 100vh;
+    overflow-y: auto;
+}
+
+/* Page visibility - all pages visible, active one shown */
+#contentPages {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.page {
+    display: none;
+}
+
+.page.active {
+    display: block;
+}

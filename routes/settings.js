@@ -35,9 +35,18 @@ router.put('/', authenticateToken, [
   body('whatsappNotifications').optional().isBoolean(),
   body('telegramNotifications').optional().isBoolean(),
   body('smsNotifications').optional().isBoolean(),
-  body('emailAddress').optional().isEmail(),
-  body('whatsappNumber').optional().isMobilePhone(),
-  body('phoneNumber').optional().isMobilePhone(),
+  body('emailAddress').optional().custom((value) => {
+    if (value === '' || value === null || value === undefined) return true;
+    return require('validator').isEmail(value);
+  }),
+  body('whatsappNumber').optional().custom((value) => {
+    if (value === '' || value === null || value === undefined) return true;
+    return true; // Accept any string for phone numbers
+  }),
+  body('phoneNumber').optional().custom((value) => {
+    if (value === '' || value === null || value === undefined) return true;
+    return true; // Accept any string for phone numbers
+  }),
   body('telegramChatId').optional().isString(),
   body('captchaApiKey').optional().isString(),
   body('captchaEnabled').optional().isBoolean(),
@@ -46,6 +55,7 @@ router.put('/', authenticateToken, [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      logger.error('Settings validation errors:', errors.array());
       return res.status(400).json({ success: false, errors: errors.array() });
     }
 
@@ -65,15 +75,31 @@ router.put('/', authenticateToken, [
     if (req.body.whatsappNotifications !== undefined) updateData.whatsapp_notifications = req.body.whatsappNotifications;
     if (req.body.telegramNotifications !== undefined) updateData.telegram_notifications = req.body.telegramNotifications;
     if (req.body.smsNotifications !== undefined) updateData.sms_notifications = req.body.smsNotifications;
-    if (req.body.emailAddress) updateData.email_address = req.body.emailAddress;
-    if (req.body.whatsappNumber) updateData.whatsapp_number = req.body.whatsappNumber;
-    if (req.body.phoneNumber) updateData.phone_number = req.body.phoneNumber;
-    if (req.body.telegramChatId) updateData.telegram_chat_id = req.body.telegramChatId;
-    if (req.body.captchaApiKey) updateData.captcha_api_key = req.body.captchaApiKey;
+    
+    // Handle string fields - allow empty strings to clear values
+    if (req.body.emailAddress !== undefined) {
+      updateData.email_address = req.body.emailAddress || null;
+    }
+    if (req.body.whatsappNumber !== undefined) {
+      updateData.whatsapp_number = req.body.whatsappNumber || null;
+    }
+    if (req.body.phoneNumber !== undefined) {
+      updateData.phone_number = req.body.phoneNumber || null;
+    }
+    if (req.body.telegramChatId !== undefined) {
+      updateData.telegram_chat_id = req.body.telegramChatId || null;
+    }
+    if (req.body.captchaApiKey !== undefined) {
+      updateData.captcha_api_key = req.body.captchaApiKey || null;
+    }
+    
     if (req.body.captchaEnabled !== undefined) updateData.captcha_enabled = req.body.captchaEnabled;
-    if (req.body.paymentMethod) updateData.payment_method = req.body.paymentMethod;
+    if (req.body.paymentMethod !== undefined) updateData.payment_method = req.body.paymentMethod || 'none';
 
     await settings.update(updateData);
+
+    // Reload to get decrypted values
+    await settings.reload();
 
     logger.info(`Settings updated for user: ${req.user.id}`);
 
@@ -83,6 +109,7 @@ router.put('/', authenticateToken, [
       settings
     });
   } catch (error) {
+    logger.error('Error updating settings:', error);
     next(error);
   }
 });

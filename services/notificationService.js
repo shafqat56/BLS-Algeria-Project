@@ -5,16 +5,34 @@ const logger = require('../utils/logger');
 
 class NotificationService {
   constructor() {
-    // Email transporter
-    this.emailTransporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: parseInt(process.env.EMAIL_PORT) || 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      }
-    });
+    // Email transporter - only initialize if email config is provided
+    if (process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      this.emailTransporter = nodemailer.createTransport({
+        host: process.env.EMAIL_HOST,
+        port: parseInt(process.env.EMAIL_PORT) || 587,
+        secure: false, // true for 465, false for other ports
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS
+        },
+        tls: {
+          rejectUnauthorized: false // For Gmail, sometimes needed
+        }
+      });
+      
+      // Verify connection on startup
+      this.emailTransporter.verify((error, success) => {
+        if (error) {
+          logger.warn('Email transporter verification failed:', error.message);
+          logger.warn('Please check your EMAIL_HOST, EMAIL_USER, and EMAIL_PASS in .env file');
+        } else {
+          logger.info('Email transporter ready');
+        }
+      });
+    } else {
+      logger.warn('Email configuration missing. Email notifications will not work.');
+      logger.warn('Please set EMAIL_HOST, EMAIL_USER, and EMAIL_PASS in .env file');
+    }
   }
 
   async notifySlotFound(userId, data, io = null) {
@@ -90,6 +108,10 @@ class NotificationService {
 
   async sendEmail(to, data) {
     try {
+      if (!this.emailTransporter) {
+        throw new Error('Email transporter not configured. Please set EMAIL_HOST, EMAIL_USER, and EMAIL_PASS in .env file');
+      }
+
       const mailOptions = {
         from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
         to,
@@ -102,6 +124,14 @@ class NotificationService {
       return { success: true, messageId: info.messageId };
     } catch (error) {
       logger.error(`Error sending email to ${to}:`, error);
+      
+      // Provide helpful error messages
+      if (error.code === 'EAUTH') {
+        throw new Error('Email authentication failed. Check your EMAIL_USER and EMAIL_PASS. For Gmail, use an App Password.');
+      } else if (error.code === 'ECONNECTION') {
+        throw new Error('Could not connect to email server. Check EMAIL_HOST and EMAIL_PORT.');
+      }
+      
       throw error;
     }
   }

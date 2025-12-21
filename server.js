@@ -1,6 +1,7 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
+const path = require('path');
 const { sequelize } = require('./models');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -11,7 +12,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: process.env.FRONTEND_URL || "http://localhost:3001",
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -49,14 +50,11 @@ app.use('/api/', limiter);
 
 // Body parsing middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  origin: process.env.FRONTEND_URL || "http://localhost:3001",
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Serve static files (frontend)
-app.use(express.static(__dirname));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -104,6 +102,18 @@ io.on('connection', (socket) => {
 
 // Make io available to routes
 app.set('io', io);
+
+// Serve static files (frontend) - React build in public folder (after API routes)
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Fallback to index.html for React Router (only in production)
+if (process.env.NODE_ENV === 'production') {
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    }
+  });
+}
 
 // Error handling middleware
 app.use(errorHandler);

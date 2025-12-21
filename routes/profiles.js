@@ -62,8 +62,7 @@ router.post('/', authenticateToken, [
   body('email').isEmail().normalizeEmail(),
   body('visaCategory').isIn(['tourist', 'student', 'work', 'business', 'transit', 'family', 'medical', 'cultural', 'sports', 'official', 'diplomatic']),
   body('blsCenter').isIn(['algiers_1', 'algiers_2', 'algiers_3', 'algiers_4', 'oran_1', 'oran_2', 'oran_3']),
-  body('appointmentType').notEmpty().trim(),
-  body('profileName').optional().trim()
+  body('appointmentType').notEmpty().trim()
 ], async (req, res, next) => {
   try {
     const errors = validationResult(req);
@@ -82,7 +81,7 @@ router.post('/', authenticateToken, [
       visa_category: req.body.visaCategory,
       bls_center: req.body.blsCenter,
       appointment_type: req.body.appointmentType,
-      profile_name: req.body.profileName || 'Default Profile'
+      profile_name: req.body.fullName // Use full name as profile name
     };
 
     const profile = await Profile.create(profileData);
@@ -109,8 +108,7 @@ router.put('/:id', authenticateToken, [
   body('email').optional().isEmail().normalizeEmail(),
   body('visaCategory').optional().isIn(['tourist', 'student', 'work', 'business', 'transit', 'family', 'medical', 'cultural', 'sports', 'official', 'diplomatic']),
   body('blsCenter').optional().isIn(['algiers_1', 'algiers_2', 'algiers_3', 'algiers_4', 'oran_1', 'oran_2', 'oran_3']),
-  body('appointmentType').optional().notEmpty().trim(),
-  body('profileName').optional().trim()
+  body('appointmentType').optional().notEmpty().trim()
 ], async (req, res, next) => {
   try {
     const errors = validationResult(req);
@@ -143,7 +141,11 @@ router.put('/:id', authenticateToken, [
     if (req.body.visaCategory) updateData.visa_category = req.body.visaCategory;
     if (req.body.blsCenter) updateData.bls_center = req.body.blsCenter;
     if (req.body.appointmentType) updateData.appointment_type = req.body.appointmentType;
-    if (req.body.profileName) updateData.profile_name = req.body.profileName;
+    // Update profile_name to match full_name if full_name is updated
+    if (req.body.fullName) {
+      updateData.full_name = req.body.fullName;
+      updateData.profile_name = req.body.fullName;
+    }
 
     await profile.update(updateData);
 

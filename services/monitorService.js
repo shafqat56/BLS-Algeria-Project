@@ -2,6 +2,7 @@ const puppeteer = require('puppeteer');
 const { Monitor, Profile, Slot } = require('../models');
 const NotificationService = require('./notificationService');
 const CaptchaService = require('./captchaService');
+const { extractSlots: extractSlotsHelper } = require('./extractSlotsHelper');
 const logger = require('../utils/logger');
 const cron = require('node-cron');
 
@@ -182,9 +183,33 @@ class MonitorService {
         }
       }
 
-      // Look for appointment slots
-      // NOTE: This is a placeholder - you'll need to adapt to actual BLS website structure
-      const slots = await this.extractSlots(page, monitor.bls_center);
+      // Map center code to actual center name/ID if needed
+      const centerMap = {
+        'algiers_1': 'ALG1',
+        'algiers_2': 'ALG2',
+        'algiers_3': 'ALG3',
+        'algiers_4': 'ALG4',
+        'oran_1': 'ORAN1',
+        'oran_2': 'ORAN2',
+        'oran_3': 'ORAN3'
+      };
+      const centerCode = centerMap[monitor.bls_center] || monitor.bls_center;
+      
+      // Select center/category if dropdown exists (for ALG1, ALG2, etc.)
+      try {
+        // Look for center/category selection dropdowns
+        const centerSelect = await page.$('select[name*="center"], select[id*="center"], #center, #category, select[name*="category"]');
+        if (centerSelect) {
+          // Try to select the appropriate center/category
+          await page.select('select[name*="center"], select[id*="center"], #center, #category, select[name*="category"]', centerCode).catch(() => {});
+          await page.waitForTimeout(1000);
+        }
+      } catch (error) {
+        logger.warn('Could not select center/category:', error.message);
+      }
+      
+      // Extract appointment slots using comprehensive helper function
+      const slots = await extractSlotsHelper(page, monitor.bls_center);
 
       // Update monitor stats
       const updateData = {
@@ -286,40 +311,8 @@ class MonitorService {
     }
   }
 
-  async extractSlots(page, center) {
-    // NOTE: This is a placeholder implementation
-    // You need to adapt this to the actual BLS Spain website structure
-    
-    try {
-      // Example: Look for appointment date picker or calendar
-      // This will vary based on the actual website structure
-      const slots = [];
-
-      // Try to find available dates
-      const dateElements = await page.$$eval(
-        '[data-date], .available-date, .slot-available',
-        elements => elements.map(el => ({
-          date: el.getAttribute('data-date') || el.textContent.trim(),
-          time: el.getAttribute('data-time') || null
-        }))
-      );
-
-      for (const element of dateElements) {
-        if (element.date) {
-          slots.push({
-            date: new Date(element.date),
-            time: element.time,
-            center: center
-          });
-        }
-      }
-
-      return slots;
-    } catch (error) {
-      logger.error('Error extracting slots:', error);
-      return [];
-    }
-  }
+  // extractSlots method moved to extractSlotsHelper.js for better organization
+  // The helper function includes multiple extraction strategies and is more robust
 }
 
 // Export singleton instance
