@@ -13,6 +13,14 @@ const Dashboard = () => {
   useEffect(() => {
     loadStats()
     loadProfileCount()
+
+    // Auto-refresh every 10 seconds
+    const intervalId = setInterval(() => {
+      loadStats()
+      loadProfileCount()
+    }, 10000)
+    
+    return () => clearInterval(intervalId)
   }, [])
 
   const loadStats = async () => {
@@ -23,9 +31,26 @@ const Dashboard = () => {
         const totalChecks = monitors.reduce((sum, m) => sum + (m.total_checks || 0), 0)
         const foundSlots = monitors.reduce((sum, m) => sum + (m.slots_found || 0), 0)
         const activeCount = monitors.filter(m => m.status === 'active').length
-        const lastCheck = monitors.length > 0 && monitors[0].last_check 
-          ? new Date(monitors[0].last_check).toLocaleTimeString() 
-          : '-'
+        
+        // Find the most recent last_check across all monitors
+        const monitorsWithLastCheck = monitors.filter(m => m.last_check)
+        let lastCheck = '-'
+        if (monitorsWithLastCheck.length > 0) {
+          // Sort by last_check descending to get the most recent
+          const sortedMonitors = [...monitorsWithLastCheck].sort((a, b) => 
+            new Date(b.last_check) - new Date(a.last_check)
+          )
+          const mostRecent = sortedMonitors[0].last_check
+          // Use the same formatting as Monitoring component
+          lastCheck = new Date(mostRecent).toLocaleString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric', 
+            hour: '2-digit', 
+            minute: '2-digit',
+            second: '2-digit'
+          })
+        }
 
         setStats({ totalChecks, foundSlots, activeCenters: activeCount, lastCheck })
       }

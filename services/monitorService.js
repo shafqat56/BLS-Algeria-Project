@@ -569,90 +569,131 @@ class MonitorService {
               if (href.startsWith('#')) {
                 logger.info('Detected accordion/hash link, clicking to expand section...');
                 try {
-                  await appointmentLink.click();
-                  await page.waitForTimeout(2000); // Wait for accordion to expand
-                  
-                  // After accordion expands, check for login form first (slots are behind login)
-                  logger.info('Checking for login form after accordion expansion...');
-                  const loginFormAfterAccordion = await page.$('#loginForm').catch(() => null);
-                  const emailInputAfterAccordion = await page.$('#Email').catch(() => null);
-                  const passwordInputAfterAccordion = await page.$('#Password').catch(() => null);
-                  const loginButtonAfterAccordion = await page.$('#btnLogin').catch(() => null);
-                  
-                  if (emailInputAfterAccordion && passwordInputAfterAccordion && loginButtonAfterAccordion && monitor.profile && monitor.profile.bls_email && monitor.profile.bls_password) {
-                    logger.info('Login form found in expanded accordion, attempting login...');
-                    try {
-                      await emailInputAfterAccordion.type(monitor.profile.bls_email, { delay: 100 });
-                      await passwordInputAfterAccordion.type(monitor.profile.bls_password, { delay: 100 });
-                      await page.waitForTimeout(1000);
+                  // Wrap entire accordion handling in a timeout to prevent hanging
+                  await Promise.race([
+                    (async () => {
+                      await appointmentLink.click();
+                      await page.waitForTimeout(2000); // Wait for accordion to expand
                       
-                      await Promise.all([
-                        page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
-                        loginButtonAfterAccordion.click()
-                      ]);
-                      await page.waitForTimeout(3000);
-                      logger.info('Login completed after accordion expansion');
-                    } catch (loginErr) {
-                      logger.warn(`Login error after accordion: ${loginErr.message}, continuing...`);
-                    }
-                  } else if (loginFormAfterAccordion || emailInputAfterAccordion) {
-                    logger.info('Login form found but credentials missing or form incomplete, skipping login');
-                  } else {
-                    // Try to find the actual booking link inside the expanded accordion
-                    const expandedSection = await page.$(href).catch(() => null); // href is like #flush-collapseOne18
-                    if (expandedSection) {
-                      logger.info('Accordion expanded, looking for booking link inside...');
+                      // After accordion expands, check for login form first (slots are behind login)
+                      logger.info('Checking for login form after accordion expansion...');
+                      const loginFormAfterAccordion = await Promise.race([
+                        page.$('#loginForm'),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000))
+                      ]).catch(() => null);
                       
-                      // Look for actual booking links inside the expanded section with timeout protection
-                      let bookingLinks = [];
-                      try {
-                        bookingLinks = await Promise.race([
-                          expandedSection.$$eval('a', links => 
-                            links
-                              .map(link => ({
-                                href: link.getAttribute('href') || '',
-                                text: link.textContent?.toLowerCase() || ''
-                              }))
-                              .filter(link => 
-                                (link.href.includes('appointment') || link.href.includes('book') || link.href.includes('booking')) &&
-                                !link.href.includes('reprint') && !link.href.includes('Reprint') &&
-                                !link.href.includes('cancel') && !link.href.includes('Cancel') &&
-                                !link.href.startsWith('#') // Skip other accordion links
-                              )
-                          ),
-                          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-                        ]).catch(err => {
-                          logger.warn(`Error or timeout evaluating booking links: ${err.message}`);
-                          return [];
-                        });
-                      } catch (evalError) {
-                        logger.warn(`Error evaluating booking links: ${evalError.message}`);
-                        bookingLinks = [];
+                      const emailInputAfterAccordion = await Promise.race([
+                        page.$('#Email'),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+                      ]).catch(() => null);
+                      
+                      const passwordInputAfterAccordion = await Promise.race([
+                        page.$('#Password'),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+                      ]).catch(() => null);
+                      
+                      const loginButtonAfterAccordion = await Promise.race([
+                        page.$('#btnLogin'),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+                      ]).catch(() => null);
+                      
+                      let loginAttempted = false;
+                      if (emailInputAfterAccordion && passwordInputAfterAccordion && loginButtonAfterAccordion && monitor.profile && monitor.profile.bls_email && monitor.profile.bls_password) {
+                        logger.info('Login form found in expanded accordion, attempting login...');
+                        try {
+                          await emailInputAfterAccordion.type(monitor.profile.bls_email, { delay: 100 });
+                          await passwordInputAfterAccordion.type(monitor.profile.bls_password, { delay: 100 });
+                          await page.waitForTimeout(1000);
+                          
+                          await Promise.all([
+                            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
+                            loginButtonAfterAccordion.click()
+                          ]);
+                          await page.waitForTimeout(3000);
+                          logger.info('Login completed after accordion expansion');
+                          loginAttempted = true;
+                        } catch (loginErr) {
+                          logger.warn(`Login error after accordion: ${loginErr.message}, continuing...`);
+                        }
+                      } else if (loginFormAfterAccordion || emailInputAfterAccordion) {
+                        logger.info('Login form found but credentials missing or form incomplete, will try to extract slots from current page');
                       }
                       
-                      if (bookingLinks.length > 0) {
-                        logger.info(`Found ${bookingLinks.length} booking link(s) inside accordion`);
-                        const bookingLink = bookingLinks[0];
+                      // After login (or if no login needed), try to find booking link or continue to slot extraction
+                      // Wait a bit more for accordion content to fully load
+                      await page.waitForTimeout(2000);
+                      
+                      // Try to find the actual booking link inside the expanded accordion with timeout
+                      logger.info(`Looking for expanded accordion section: ${href}`);
+                      const expandedSection = await Promise.race([
+                        page.$(href),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+                      ]).catch(err => {
+                        logger.warn(`Could not find accordion section ${href}: ${err.message}`);
+                        return null;
+                      });
+                      
+                      if (expandedSection) {
+                        logger.info('Accordion expanded, looking for booking link inside...');
                         
-                        // Navigate to the actual booking page
-                        const fullUrl = bookingLink.href.startsWith('http') 
-                          ? bookingLink.href 
-                          : new URL(bookingLink.href, page.url()).href;
-                        logger.info(`Navigating to actual booking page: ${fullUrl}`);
-                        await page.goto(fullUrl, { waitUntil: 'networkidle2', timeout: 60000 }).catch(err => {
-                          logger.warn(`Navigation error: ${err.message}`);
-                        });
-                        await page.waitForTimeout(3000);
-                        logger.info(`Navigated to booking page: ${page.url()}`);
+                        // Look for actual booking links inside the expanded section with timeout protection
+                        let bookingLinks = [];
+                        try {
+                          bookingLinks = await Promise.race([
+                            expandedSection.$$eval('a', links => 
+                              links
+                                .map(link => ({
+                                  href: link.getAttribute('href') || '',
+                                  text: link.textContent?.toLowerCase() || ''
+                                }))
+                                .filter(link => 
+                                  (link.href.includes('appointment') || link.href.includes('book') || link.href.includes('booking')) &&
+                                  !link.href.includes('reprint') && !link.href.includes('Reprint') &&
+                                  !link.href.includes('cancel') && !link.href.includes('Cancel') &&
+                                  !link.href.startsWith('#') // Skip other accordion links
+                                )
+                            ),
+                            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+                          ]).catch(err => {
+                            logger.warn(`Error or timeout evaluating booking links: ${err.message}`);
+                            return [];
+                          });
+                        } catch (evalError) {
+                          logger.warn(`Error evaluating booking links: ${evalError.message}`);
+                          bookingLinks = [];
+                        }
+                        
+                        if (bookingLinks.length > 0) {
+                          logger.info(`Found ${bookingLinks.length} booking link(s) inside accordion`);
+                          const bookingLink = bookingLinks[0];
+                          
+                          // Navigate to the actual booking page
+                          const fullUrl = bookingLink.href.startsWith('http') 
+                            ? bookingLink.href 
+                            : new URL(bookingLink.href, page.url()).href;
+                          logger.info(`Navigating to actual booking page: ${fullUrl}`);
+                          await page.goto(fullUrl, { waitUntil: 'networkidle2', timeout: 60000 }).catch(err => {
+                            logger.warn(`Navigation error: ${err.message}`);
+                          });
+                          await page.waitForTimeout(3000);
+                          logger.info(`Navigated to booking page: ${page.url()}`);
+                        } else {
+                          logger.info('No booking link found inside accordion, will try to extract slots from current page');
+                          // Wait a bit more for content to load before slot extraction
+                          await page.waitForTimeout(2000);
+                        }
                       } else {
-                        logger.info('No booking link found inside accordion, checking for login/booking form on current page');
-                        // Wait a bit more for content to load
+                        logger.info('Accordion section not found after click, will try to extract slots from current page');
+                        // Wait a bit for page to stabilize
                         await page.waitForTimeout(2000);
                       }
-                    } else {
-                      logger.warn('Accordion section not found after click, continuing with current page');
-                    }
-                  }
+                      
+                      logger.info('Accordion handling completed, proceeding to slot extraction...');
+                    })(),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Accordion handling timeout after 30 seconds')), 30000))
+                  ]).catch(err => {
+                    logger.warn(`Accordion handling timeout or error: ${err.message}, continuing to slot extraction...`);
+                  });
                 } catch (accordionError) {
                   logger.warn(`Error handling accordion click: ${accordionError.message}, continuing...`);
                 }
