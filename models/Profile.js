@@ -115,6 +115,46 @@ module.exports = (sequelize) => {
     is_active: {
       type: DataTypes.BOOLEAN,
       defaultValue: true
+    },
+    bls_email: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      get() {
+        const value = this.getDataValue('bls_email');
+        if (!value) return null;
+        try {
+          return decrypt(value);
+        } catch (error) {
+          return null;
+        }
+      },
+      set(value) {
+        if (value && value.trim() !== '') {
+          this.setDataValue('bls_email', encrypt(value));
+        } else {
+          this.setDataValue('bls_email', null);
+        }
+      }
+    },
+    bls_password: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      get() {
+        const value = this.getDataValue('bls_password');
+        if (!value) return null;
+        try {
+          return decrypt(value);
+        } catch (error) {
+          return null;
+        }
+      },
+      set(value) {
+        if (value && value.trim() !== '') {
+          this.setDataValue('bls_password', encrypt(value));
+        } else {
+          this.setDataValue('bls_password', null);
+        }
+      }
     }
   }, {
     tableName: 'profiles'

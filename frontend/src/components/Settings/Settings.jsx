@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { settingsAPI, notificationAPI } from '../../services/api'
+import { settingsAPI } from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { showLoading, hideLoading } from '../Common/LoadingOverlay'
 import { showAlert } from '../../utils/alerts'
 import BiometricSettings from './BiometricSettings'
+import PaymentSettings from './PaymentSettings'
 
 const Settings = () => {
   const { user } = useAuth()
@@ -84,30 +85,8 @@ const Settings = () => {
                 Email Notifications
               </label>
               {settings.emailNotifications && (
-                <div>
-                  <input type="email" className="form-input" placeholder="Email address"
-                    value={settings.emailAddress} onChange={(e) => setSettings({...settings, emailAddress: e.target.value})} />
-                  {settings.emailAddress && (
-                    <button 
-                      type="button" 
-                      className="btn btn-outline btn-sm" 
-                      style={{ marginTop: '10px', width: '100%' }}
-                      onClick={async () => {
-                        try {
-                          showLoading('Sending test email...')
-                          await notificationAPI.test('email', settings.emailAddress)
-                          showAlert('Test email sent! Check your inbox.', 'success')
-                        } catch (error) {
-                          showAlert(error.response?.data?.error || 'Failed to send test email. Check server logs.', 'error')
-                        } finally {
-                          hideLoading()
-                        }
-                      }}
-                    >
-                      <i className="fas fa-paper-plane"></i> Send Test Email
-                    </button>
-                  )}
-                </div>
+                <input type="email" className="form-input" placeholder="Email address"
+                  value={settings.emailAddress} onChange={(e) => setSettings({...settings, emailAddress: e.target.value})} />
               )}
             </div>
             <div className="form-group">
@@ -155,7 +134,8 @@ const Settings = () => {
           </div>
         </form>
 
-        <BiometricSettings user={user} />
+        <BiometricSettings user={user} onUpdate={loadSettings} />
+        <PaymentSettings user={user} onUpdate={loadSettings} />
       </div>
     </>
   )

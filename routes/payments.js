@@ -112,7 +112,7 @@ router.get('/methods', authenticateToken, async (req, res, next) => {
   }
 });
 
-// Webhook for Stripe events (should be in separate endpoint without auth)
+// Webhook for Stripe events (no auth required)
 router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;

@@ -67,7 +67,14 @@ export const settingsAPI = {
 
 // Notification endpoints
 export const notificationAPI = {
-  test: (type, recipient) => api.post('/notifications/test', { type, recipient }),
+  // Test endpoint removed - emails are only sent for real slots found
+}
+
+// Payment endpoints
+export const paymentAPI = {
+  createIntent: (amount, currency) => api.post('/payments/create-intent', { amount, currency }),
+  confirm: (paymentIntentId) => api.post('/payments/confirm', { paymentIntentId }),
+  getMethods: () => api.get('/payments/methods'),
 }
 
 export default api

@@ -23,6 +23,13 @@ const Monitoring = () => {
   useEffect(() => {
     loadMonitors()
     loadProfiles()
+    
+    // Refresh monitors every 10 seconds to show updated last_check
+    const interval = setInterval(() => {
+      loadMonitors()
+    }, 10000)
+    
+    return () => clearInterval(interval)
   }, [])
 
   const loadMonitors = async () => {
@@ -157,7 +164,20 @@ const Monitoring = () => {
                 <tr key={monitor.id}>
                   <td>{monitor.bls_center.replace('_', ' ').toUpperCase()}</td>
                   <td><span className={`status-badge ${monitor.status}`}>{monitor.status}</span></td>
-                  <td>{monitor.last_check ? new Date(monitor.last_check).toLocaleString() : 'Never'}</td>
+                  <td>
+                    {monitor.last_check 
+                      ? new Date(monitor.last_check).toLocaleString('en-US', { 
+                          year: 'numeric', 
+                          month: 'short', 
+                          day: 'numeric', 
+                          hour: '2-digit', 
+                          minute: '2-digit',
+                          second: '2-digit'
+                        })
+                      : monitor.status === 'active' 
+                        ? 'Checking...' 
+                        : 'Never'}
+                  </td>
                   <td>{monitor.slots_found || 0}</td>
                   <td>
                     {monitor.status === 'active' ? (

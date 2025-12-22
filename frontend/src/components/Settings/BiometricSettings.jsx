@@ -16,34 +16,64 @@ const BiometricSettings = ({ user, onUpdate }) => {
       setEnabling(true)
       showLoading('Setting up biometric authentication...')
 
+      // Generate random challenge
+      const challenge = new Uint8Array(32)
+      crypto.getRandomValues(challenge)
+
+      // Convert user ID to buffer
+      const userIdBuffer = new TextEncoder().encode(user.id)
+
       // Request biometric credential
       const credential = await navigator.credentials.create({
         publicKey: {
-          challenge: new Uint8Array(32),
+          challenge: challenge,
           rp: {
             name: 'BLS Bot Pro',
-            id: window.location.hostname,
+            id: window.location.hostname || 'localhost',
           },
           user: {
-            id: new Uint8Array(16),
+            id: userIdBuffer,
             name: user.email,
             displayName: user.email,
           },
-          pubKeyCredParams: [{ alg: -7, type: 'public-key' }],
+          pubKeyCredParams: [
+            { alg: -7, type: 'public-key' }, // ES256
+            { alg: -257, type: 'public-key' } // RS256
+          ],
           authenticatorSelection: {
-            userVerification: 'preferred',
+            authenticatorAttachment: 'platform', // Use device authenticator
+            userVerification: 'required',
+            requireResidentKey: false
           },
           timeout: 60000,
+          attestation: 'direct'
         },
       })
 
-      // Convert credential to string for storage
-      const credentialId = Array.from(new Uint8Array(credential.rawId))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('')
+      // Convert credential data to base64 for storage
+      const credentialData = {
+        id: Array.from(new Uint8Array(credential.rawId))
+          .map(b => String.fromCharCode(b))
+          .join(''),
+        rawId: Array.from(new Uint8Array(credential.rawId))
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join(''),
+        response: {
+          attestationObject: Array.from(new Uint8Array(credential.response.attestationObject))
+            .map(b => String.fromCharCode(b))
+            .join(''),
+          clientDataJSON: Array.from(new Uint8Array(credential.response.clientDataJSON))
+            .map(b => String.fromCharCode(b))
+            .join('')
+        },
+        type: credential.type
+      }
+
+      // Convert to base64 for storage
+      const credentialString = btoa(JSON.stringify(credentialData))
 
       // Enable biometric on backend
-      const response = await authAPI.enableBiometric(credentialId)
+      const response = await authAPI.enableBiometric(credentialString)
       
       if (response.data.success) {
         showAlert('Biometric authentication enabled successfully!', 'success')
@@ -52,8 +82,10 @@ const BiometricSettings = ({ user, onUpdate }) => {
     } catch (error) {
       if (error.name === 'NotAllowedError') {
         showAlert('Biometric authentication was cancelled or not available', 'error')
+      } else if (error.name === 'NotSupportedError') {
+        showAlert('Biometric authentication is not supported on this device', 'error')
       } else {
-        showAlert('Failed to enable biometric authentication', 'error')
+        showAlert('Failed to enable biometric authentication: ' + error.message, 'error')
       }
       console.error('Biometric error:', error)
     } finally {
@@ -66,19 +98,50 @@ const BiometricSettings = ({ user, onUpdate }) => {
     try {
       showLoading('Verifying biometric...')
 
+      // Generate random challenge
+      const challenge = new Uint8Array(32)
+      crypto.getRandomValues(challenge)
+
       // Request biometric assertion
       const assertion = await navigator.credentials.get({
         publicKey: {
-          challenge: new Uint8Array(32),
+          challenge: challenge,
           timeout: 60000,
+          userVerification: 'required',
+          allowCredentials: [] // Empty array means use any available credential
         },
       })
 
-      const credentialId = Array.from(new Uint8Array(assertion.rawId))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('')
+      // Prepare assertion data
+      const assertionData = {
+        id: Array.from(new Uint8Array(assertion.rawId))
+          .map(b => String.fromCharCode(b))
+          .join(''),
+        rawId: Array.from(new Uint8Array(assertion.rawId))
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join(''),
+        response: {
+          authenticatorData: Array.from(new Uint8Array(assertion.response.authenticatorData))
+            .map(b => String.fromCharCode(b))
+            .join(''),
+          clientDataJSON: Array.from(new Uint8Array(assertion.response.clientDataJSON))
+            .map(b => String.fromCharCode(b))
+            .join(''),
+          signature: Array.from(new Uint8Array(assertion.response.signature))
+            .map(b => String.fromCharCode(b))
+            .join(''),
+          userHandle: assertion.response.userHandle ? 
+            Array.from(new Uint8Array(assertion.response.userHandle))
+              .map(b => String.fromCharCode(b))
+              .join('') : null
+        },
+        type: assertion.type
+      }
 
-      const response = await authAPI.verifyBiometric(credentialId)
+      // Convert to base64
+      const assertionString = btoa(JSON.stringify(assertionData))
+
+      const response = await authAPI.verifyBiometric(assertionString)
       
       if (response.data.success) {
         showAlert('Biometric verification successful!', 'success')
@@ -91,8 +154,10 @@ const BiometricSettings = ({ user, onUpdate }) => {
     } catch (error) {
       if (error.name === 'NotAllowedError') {
         showAlert('Biometric verification was cancelled', 'error')
+      } else if (error.name === 'InvalidStateError') {
+        showAlert('No biometric credential found. Please enable biometric authentication first.', 'error')
       } else {
-        showAlert('Biometric verification failed', 'error')
+        showAlert('Biometric verification failed: ' + error.message, 'error')
       }
       console.error('Biometric verification error:', error)
     } finally {

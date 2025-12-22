@@ -66,8 +66,21 @@ app.use('/api/auth', authRoutes);
 app.use('/api/profiles', authenticateToken, profileRoutes);
 app.use('/api/monitor', authenticateToken, monitorRoutes);
 app.use('/api/settings', authenticateToken, settingsRoutes);
-app.use('/api/payments', authenticateToken, paymentRoutes);
+
+// Payment routes - webhook doesn't need auth, others do
+app.use('/api/payments', (req, res, next) => {
+  // Skip auth for webhook endpoint
+  if (req.path === '/webhook' || req.originalUrl.includes('/webhook')) {
+    return paymentRoutes(req, res, next);
+  }
+  // Apply auth for other payment routes
+  authenticateToken(req, res, () => {
+    paymentRoutes(req, res, next);
+  });
+});
+
 app.use('/api/notifications', authenticateToken, notificationRoutes);
+app.use('/api/autofill', authenticateToken, require('./routes/autofill'));
 
 // Socket.io connection handling
 io.use((socket, next) => {

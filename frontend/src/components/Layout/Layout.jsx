@@ -5,6 +5,7 @@ import Dashboard from '../Dashboard/Dashboard'
 import Profiles from '../Profiles/Profiles'
 import Monitoring from '../Monitoring/Monitoring'
 import Settings from '../Settings/Settings'
+import QuickBooking from '../QuickBooking/QuickBooking'
 import '../Layout/Layout.css'
 
 const Layout = ({ onLogout }) => {
@@ -77,17 +78,7 @@ const Layout = ({ onLogout }) => {
           </div>
 
           <div className={`page ${activePage === 'autofill' ? 'active' : ''}`} id="autofillPage">
-            <div className="card">
-              <div className="card-header">
-                <div className="card-title">
-                  <i className="fas fa-magic"></i>
-                  <span>Auto-fill Configuration</span>
-                </div>
-              </div>
-              <div style={{ padding: '20px', textAlign: 'center', color: '#718096' }}>
-                Auto-fill settings will be configured here.
-              </div>
-            </div>
+            <QuickBooking />
           </div>
 
           <div className={`page ${activePage === 'notifications' ? 'active' : ''}`} id="notificationsPage">

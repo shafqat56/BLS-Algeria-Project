@@ -103,9 +103,32 @@ module.exports = (sequelize) => {
   User.prototype.verifyBiometric = function(biometricData) {
     if (!this.biometric_data) return false;
     try {
-      return this.biometric_data === biometricData;
+      // Compare stored credential ID with provided assertion
+      // Handle both base64 encoded JSON and plain strings
+      let storedData, providedData;
+      
+      try {
+        // Try parsing as base64 JSON
+        storedData = JSON.parse(Buffer.from(this.biometric_data, 'base64').toString());
+        providedData = JSON.parse(Buffer.from(biometricData, 'base64').toString());
+      } catch (e) {
+        // Fallback: try direct JSON parse (if stored as plain JSON)
+        storedData = JSON.parse(this.biometric_data);
+        providedData = JSON.parse(biometricData);
+      }
+      
+      // Verify credential ID matches
+      return storedData.rawId === providedData.rawId || 
+             storedData.id === providedData.id ||
+             (storedData.response && providedData.response && 
+              storedData.response.clientDataJSON === providedData.response.clientDataJSON);
     } catch (error) {
-      return false;
+      // Fallback to simple string comparison for backward compatibility
+      try {
+        return this.biometric_data === biometricData;
+      } catch (e) {
+        return false;
+      }
     }
   };
 

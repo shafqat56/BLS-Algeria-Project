@@ -151,6 +151,13 @@ const Profiles = () => {
                 {BLS_CENTERS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </div>
+            <div className="form-group">
+              <label className="form-label"><i className="fas fa-calendar-check"></i> Appointment Type</label>
+              <select className="form-input" value={formData.appointmentType}
+                onChange={(e) => setFormData({...formData, appointmentType: e.target.value})} required>
+                {APPOINTMENT_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+              </select>
+            </div>
           </div>
           <div className="form-actions">
             <button type="submit" className="btn btn-primary">

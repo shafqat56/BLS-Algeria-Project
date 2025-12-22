@@ -1,52 +1,66 @@
 const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
 const NotificationService = require('../services/notificationService');
+const { Settings } = require('../models');
 const logger = require('../utils/logger');
 
 const router = express.Router();
 
-// Test notifications
-router.post('/test', authenticateToken, async (req, res, next) => {
+// Get notification status/configuration
+router.get('/status', authenticateToken, async (req, res, next) => {
   try {
-    const { type, recipient } = req.body;
-
-    if (!type || !['email', 'whatsapp', 'telegram', 'sms'].includes(type)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid notification type'
+    const settings = await Settings.findOne({ where: { user_id: req.user.id } });
+    
+    if (!settings) {
+      return res.json({
+        success: true,
+        configured: false,
+        message: 'No settings found. Please configure your notification settings.',
+        channels: {
+          email: { enabled: false, configured: false },
+          whatsapp: { enabled: false, configured: false },
+          telegram: { enabled: false, configured: false },
+          sms: { enabled: false, configured: false }
+        }
       });
     }
 
-    const testMessage = {
-      title: 'Test Notification',
-      message: 'This is a test notification from BLS Appointment Monitor',
-      slotDate: new Date(),
-      center: 'Test Center'
-    };
-
-    let result;
-    switch (type) {
-      case 'email':
-        result = await NotificationService.sendEmail(recipient || req.user.email, testMessage);
-        break;
-      case 'whatsapp':
-        result = await NotificationService.sendWhatsApp(recipient, testMessage);
-        break;
-      case 'telegram':
-        result = await NotificationService.sendTelegram(recipient, testMessage);
-        break;
-      case 'sms':
-        result = await NotificationService.sendSMS(recipient, testMessage);
-        break;
-    }
+    // Check if services are configured in environment
+    const emailConfigured = !!(process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS);
+    const twilioConfigured = !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN);
+    const telegramConfigured = !!process.env.TELEGRAM_BOT_TOKEN;
 
     res.json({
       success: true,
-      message: 'Test notification sent',
-      result
+      configured: true,
+      channels: {
+        email: {
+          enabled: settings.email_notifications,
+          configured: emailConfigured && !!settings.email_address,
+          address: settings.email_address ? '***' + settings.email_address.slice(-4) : null
+        },
+        whatsapp: {
+          enabled: settings.whatsapp_notifications,
+          configured: twilioConfigured && !!settings.whatsapp_number,
+          number: settings.whatsapp_number ? '***' + settings.whatsapp_number.slice(-4) : null,
+          serviceConfigured: twilioConfigured
+        },
+        telegram: {
+          enabled: settings.telegram_notifications,
+          configured: telegramConfigured && !!settings.telegram_chat_id,
+          chatId: settings.telegram_chat_id ? '***' + settings.telegram_chat_id.slice(-4) : null,
+          serviceConfigured: telegramConfigured
+        },
+        sms: {
+          enabled: settings.sms_notifications,
+          configured: twilioConfigured && !!settings.phone_number,
+          number: settings.phone_number ? '***' + settings.phone_number.slice(-4) : null,
+          serviceConfigured: twilioConfigured
+        }
+      }
     });
   } catch (error) {
-    logger.error('Test notification error:', error);
+    logger.error('Get notification status error:', error);
     next(error);
   }
 });

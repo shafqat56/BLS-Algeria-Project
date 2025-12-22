@@ -1,14 +1,18 @@
-# BLS Algeria Slot Extraction - Customization Guide
+# BLS Algeria Slot Extraction - Implementation Guide
 
-## Current Implementation
+## ✅ Implementation Status
 
-I've created a comprehensive `extractSlots` function in `services/extractSlotsHelper.js` that tries multiple strategies to find appointment slots. However, you'll need to customize it based on the actual BLS Algeria website structure.
+The monitoring service has been **fully implemented** for the BLS Algeria website at **https://algeria.blsspainvisa.com/**
 
 ## Website URL
 
-**Base URL**: https://algeria.blsspainvisa.com/algiers/
+**Base URL**: https://algeria.blsspainvisa.com/
 
-**Booking Page**: Navigate to "Book Appointment" section
+**Centers**:
+- Algiers: https://algeria.blsspainvisa.com/algiers
+- Oran: https://algeria.blsspainvisa.com/oran
+
+**Booking Page**: Automatically navigated to from center selection
 
 ## How to Customize
 
