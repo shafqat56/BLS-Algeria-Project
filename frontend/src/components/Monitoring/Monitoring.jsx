@@ -29,7 +29,26 @@ const Monitoring = () => {
       loadMonitors()
     }, 10000)
     
-    return () => clearInterval(interval)
+    // Listen for navigation events to reload profiles when navigating to monitoring page
+    const handleNavigate = (e) => {
+      if (e.detail === 'monitoring') {
+        loadProfiles()
+        loadMonitors()
+      }
+    }
+    window.addEventListener('navigate', handleNavigate)
+    
+    // Listen for profile updates (when a profile is created/updated/deleted)
+    const handleProfileUpdate = () => {
+      loadProfiles()
+    }
+    window.addEventListener('profileUpdated', handleProfileUpdate)
+    
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('navigate', handleNavigate)
+      window.removeEventListener('profileUpdated', handleProfileUpdate)
+    }
   }, [])
 
   const loadMonitors = async () => {

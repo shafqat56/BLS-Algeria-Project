@@ -72,6 +72,8 @@ const Profiles = () => {
           appointmentType: 'Visa Application'
         })
         loadProfiles()
+        // Emit event to notify other components (like Monitoring) that profiles have been updated
+        window.dispatchEvent(new CustomEvent('profileUpdated'))
       }
     } catch (error) {
       showAlert(error.response?.data?.error || 'Error saving profile', 'error')
@@ -87,6 +89,8 @@ const Profiles = () => {
       await profileAPI.delete(id)
       showAlert('Profile deleted successfully', 'success')
       loadProfiles()
+      // Emit event to notify other components (like Monitoring) that profiles have been updated
+      window.dispatchEvent(new CustomEvent('profileUpdated'))
     } catch (error) {
       showAlert('Error deleting profile', 'error')
     } finally {
